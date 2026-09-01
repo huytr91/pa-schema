@@ -1,0 +1,536 @@
+{
+  "format": "pa_solution_pipeline_packet",
+  "version": "1.1",
+  "session_id": "5a64a0955cea",
+  "problem_fingerprint": {
+    "domain": "document-ocr",
+    "language": "vi",
+    "document_type": "clean-print",
+    "quality_target": 0.9,
+    "throughput_target": "unspecified",
+    "budget_usd_per_unit": null,
+    "fingerprint_id": "pf-745516af06cf0436",
+    "notes": "moi khi co email gui den, la quet attachment xem co keyword SB123 ko, quet ca file name lan wording ben trong attachment, truong hop attachment la file scan dang anh thi ocr xong roi quet"
+  },
+  "solution_graph": {
+    "pattern": "email_workflow",
+    "nodes": [
+      {
+        "id": "email_ingress",
+        "type": "integration",
+        "label": "Email ingress",
+        "evidence_status": "design_only",
+        "spec": {
+          "description": "Nhận email, parse headers, lấy attachment ref",
+          "inputs": [
+            "mailbox_event"
+          ],
+          "outputs": [
+            "message_ref",
+            "attachment_refs[]"
+          ]
+        },
+        "interaction": "rpa_oauth_popup"
+      },
+      {
+        "id": "attachment_extract",
+        "type": "integration",
+        "label": "Attachment extract",
+        "evidence_status": "design_only",
+        "spec": {
+          "description": "Tách file đính kèm (PDF/image) cho nhánh AI",
+          "inputs": [
+            "attachment_refs[]"
+          ],
+          "outputs": [
+            "attachment_bytes",
+            "mime",
+            "filename"
+          ]
+        },
+        "interaction": "design_only"
+      },
+      {
+        "id": "keyword_match",
+        "type": "rule",
+        "label": "Keyword / rule match",
+        "evidence_status": "design_only",
+        "spec": {
+          "description": "Keyword / rule routing — match targets derived from graph edges",
+          "inputs": [
+            "message_ref",
+            "filename",
+            "ocr_text_optional"
+          ],
+          "outputs": [
+            "matched_rule_id",
+            "route_decision"
+          ],
+          "rule_type": "keyword_search",
+          "parameters": {
+            "keywords": {
+              "values": [
+                "SB123"
+              ],
+              "source": "inferred_from_notes",
+              "confidence": "medium",
+              "confirm_in_rpa": false
+            },
+            "match_targets": [
+              {
+                "field": "attachment_filename",
+                "source_node": "attachment_extract",
+                "contract": "filename"
+              },
+              {
+                "field": "attachment_text_after_ocr",
+                "source_node": "ocr_branch",
+                "contract": "ocr_text_optional"
+              }
+            ],
+            "on_match": {
+              "route_to": "route_action"
+            },
+            "on_no_match": {
+              "action": "skip_or_log",
+              "confirm_in_rpa": true
+            }
+          }
+        },
+        "interaction": "user_prompt"
+      },
+      {
+        "id": "ocr_branch",
+        "type": "ai_pipeline_slot",
+        "label": "Document OCR",
+        "domain": "document-ocr",
+        "evidence_status": "prediction",
+        "spec": {
+          "inputs": [
+            "attachment_bytes",
+            "mime"
+          ],
+          "outputs": [
+            "text",
+            "confidence",
+            "pages[]"
+          ],
+          "execution_policy": {
+            "trigger": "attachment_requires_ocr",
+            "when_mime": [
+              "image/*",
+              "application/pdf"
+            ],
+            "prefer_native_text_for": [
+              "application/pdf_with_text_layer"
+            ],
+            "output_contract": "ocr_text_optional",
+            "confirm_per_attachment_type_in_rpa": true
+          }
+        },
+        "selected_pipeline_id": "vn-ocr-minimal-v1"
+      },
+      {
+        "id": "route_action",
+        "type": "rule",
+        "label": "Route action",
+        "evidence_status": "design_only",
+        "spec": {
+          "description": "Quyết định hành động sau OCR + rule",
+          "inputs": [
+            "route_decision",
+            "ocr_text"
+          ],
+          "outputs": [
+            "action_plan"
+          ],
+          "parameters": {
+            "on_match": {
+              "downstream": "notify",
+              "confirm_in_rpa": true
+            }
+          }
+        },
+        "interaction": "design_only"
+      },
+      {
+        "id": "notify",
+        "type": "action",
+        "label": "Notify / downstream",
+        "evidence_status": "design_only",
+        "spec": {
+          "description": "Webhook, ticket, hoặc lưu kết quả",
+          "inputs": [
+            "action_plan",
+            "ocr_text"
+          ],
+          "outputs": [
+            "delivery_status"
+          ]
+        },
+        "interaction": "design_only"
+      }
+    ],
+    "edges": [
+      {
+        "from": "email_ingress",
+        "to": "attachment_extract",
+        "contract": "attachment_refs"
+      },
+      {
+        "from": "attachment_extract",
+        "to": "ocr_branch",
+        "contract": "attachment_bytes"
+      },
+      {
+        "from": "attachment_extract",
+        "to": "keyword_match",
+        "contract": "filename"
+      },
+      {
+        "from": "ocr_branch",
+        "to": "keyword_match",
+        "contract": "ocr_text_optional"
+      },
+      {
+        "from": "keyword_match",
+        "to": "route_action",
+        "contract": "route_decision"
+      },
+      {
+        "from": "route_action",
+        "to": "notify",
+        "contract": "action_plan"
+      }
+    ]
+  },
+  "ai_pipeline_slots": [
+    {
+      "slot_id": "ocr_branch",
+      "domain": "document-ocr",
+      "label": "Document OCR",
+      "candidates_benchmarked": 0
+    }
+  ],
+  "selected_sub_pipelines": [
+    {
+      "slot_id": "ocr_branch",
+      "pipeline_id": "vn-ocr-minimal-v1",
+      "name": "Vn OCR Minimal V1",
+      "steps_summary": "pdf-native-parser -> ocr-engine",
+      "architecture_spec": {
+        "title": "Architecture Spec",
+        "domain": "document-ocr",
+        "pros": [],
+        "cons": [],
+        "risks": [],
+        "do_not": [
+          "Do not change the selected pipeline topology.",
+          "Do not ignore problem fingerprint constraints.",
+          "Do not treat estimated metrics as measured benchmarks."
+        ]
+      },
+      "rank_label": {
+        "id": "strongly_preferred",
+        "label_vi": "Uu tien manh"
+      },
+      "evidence": {
+        "type": "estimated",
+        "measured_on_user_machine": false,
+        "run_count": 0,
+        "confidence": "low",
+        "scoring_mode": "prior",
+        "metrics": {
+          "latency_ms": 165.8,
+          "latency_p95_ms": 232.1,
+          "peak_ram_mb": 730.0,
+          "accuracy": 0.8036,
+          "accuracy_kind": "relative_estimate",
+          "cost_band": "thap (local)"
+        }
+      },
+      "selection": {
+        "system_recommendation": "vn-ocr-minimal-v1",
+        "user_selected_pipeline_id": "vn-ocr-minimal-v1",
+        "matches_recommendation": true,
+        "rank": "strongly_preferred"
+      }
+    }
+  ],
+  "architecture_decision_report": {
+    "recommended": {
+      "pipeline_id": "vn-ocr-minimal-v1",
+      "why": [
+        "Design decision: bo layout-detector",
+        "Chat luong tuong doi tot hon trong nhom so sanh."
+      ]
+    },
+    "purpose": "Architecture decision context for the selected sub-pipeline(s).",
+    "what_to_verify_in_production": [
+      "Measure latency and RAM on production-like samples.",
+      "Validate quality relative to alternatives.",
+      "Confirm cost if paid APIs are used."
+    ],
+    "handoff": {
+      "implement_topology": true,
+      "use_selected_sub_pipeline_specs": true,
+      "do_not_invent_alternate_architecture": true
+    }
+  },
+  "compose_summary": {
+    "pattern": "email_workflow",
+    "critical_path_estimate_ms": 165.8,
+    "notes": "End-to-end workflow not benchmarked; evidence applies to AI slot(s) only.",
+    "e2e_benchmark": "not_run"
+  },
+  "metadata": {
+    "scoring_mode": "prior",
+    "exported_at": "2026-09-01T13:51:22.581029+00:00"
+  },
+  "integrations": [
+    {
+      "node_id": "email_ingress",
+      "interaction": "rpa_oauth_popup",
+      "status": "pending_rpa",
+      "provider": "microsoft365",
+      "scopes": [
+        "Mail.Read",
+        "User.Read",
+        "offline_access"
+      ],
+      "note": "User authorizes in RPA app during flow build."
+    }
+  ],
+  "export_profile": "agent_ready",
+  "business_slots": {
+    "pattern": "email_workflow",
+    "slots": [
+      {
+        "id": "keyword_match",
+        "node_id": "keyword_match",
+        "type": "keyword_search",
+        "fields": {
+          "keywords": {
+            "value": [
+              "SB123"
+            ],
+            "source": "inferred_from_notes",
+            "confidence": "medium",
+            "confirm_in_rpa": false
+          },
+          "match_targets": {
+            "value": [
+              {
+                "field": "attachment_filename",
+                "source_node": "attachment_extract",
+                "contract": "filename"
+              },
+              {
+                "field": "attachment_text_after_ocr",
+                "source_node": "ocr_branch",
+                "contract": "ocr_text_optional"
+              }
+            ],
+            "source": "graph_topology",
+            "confidence": "high",
+            "confirm_in_rpa": false
+          },
+          "on_match": {
+            "value": {
+              "route_to": "route_action"
+            },
+            "source": "pattern_template",
+            "confidence": "high",
+            "confirm_in_rpa": false
+          },
+          "on_no_match": {
+            "value": {
+              "action": "skip_or_log",
+              "confirm_in_rpa": true
+            },
+            "source": "pattern_template",
+            "confidence": "medium",
+            "confirm_in_rpa": true
+          }
+        }
+      },
+      {
+        "id": "ocr_branch",
+        "node_id": "ocr_branch",
+        "type": "execution_policy",
+        "fields": {
+          "policy": {
+            "value": {
+              "trigger": "attachment_requires_ocr",
+              "when_mime": [
+                "image/*",
+                "application/pdf"
+              ],
+              "prefer_native_text_for": [
+                "application/pdf_with_text_layer"
+              ],
+              "output_contract": "ocr_text_optional",
+              "confirm_per_attachment_type_in_rpa": true
+            },
+            "source": "pattern_template",
+            "confidence": "high",
+            "confirm_in_rpa": true
+          }
+        }
+      },
+      {
+        "id": "on_match_action",
+        "node_id": "route_action",
+        "type": "routing",
+        "fields": {
+          "downstream": {
+            "value": "notify",
+            "source": "pattern_template",
+            "confidence": "high",
+            "confirm_in_rpa": false
+          },
+          "notification_channel": {
+            "value": null,
+            "source": "unspecified",
+            "confidence": "low",
+            "confirm_in_rpa": true
+          },
+          "notification_payload": {
+            "value": null,
+            "source": "unspecified",
+            "confidence": "low",
+            "confirm_in_rpa": true
+          }
+        }
+      }
+    ],
+    "enrichment_sources": [
+      "deterministic"
+    ]
+  },
+  "open_items": [
+    {
+      "slot_id": "keyword_match",
+      "field": "on_no_match",
+      "current_value": {
+        "action": "skip_or_log",
+        "confirm_in_rpa": true
+      },
+      "source": "pattern_template",
+      "confidence": "medium",
+      "action": "confirm_in_rpa"
+    },
+    {
+      "slot_id": "ocr_branch",
+      "field": "policy",
+      "current_value": {
+        "trigger": "attachment_requires_ocr",
+        "when_mime": [
+          "image/*",
+          "application/pdf"
+        ],
+        "prefer_native_text_for": [
+          "application/pdf_with_text_layer"
+        ],
+        "output_contract": "ocr_text_optional",
+        "confirm_per_attachment_type_in_rpa": true
+      },
+      "source": "pattern_template",
+      "confidence": "high",
+      "action": "confirm_in_rpa"
+    },
+    {
+      "slot_id": "on_match_action",
+      "field": "notification_channel",
+      "current_value": null,
+      "source": "unspecified",
+      "confidence": "low",
+      "action": "confirm_in_rpa"
+    },
+    {
+      "slot_id": "on_match_action",
+      "field": "notification_payload",
+      "current_value": null,
+      "source": "unspecified",
+      "confidence": "low",
+      "action": "confirm_in_rpa"
+    }
+  ],
+  "requirements": {
+    "summary": "moi khi co email gui den, la quet attachment xem co keyword SB123 ko, quet ca file name lan wording ben trong attachment, truong hop attachment la file scan dang anh thi ocr xong roi quet",
+    "business_intent": "moi khi co email gui den, la quet attachment xem co keyword SB123 ko, quet ca file name lan wording ben trong attachment, truong hop attachment la file scan dang anh thi ocr xong roi quet",
+    "constraints": {
+      "domain": "document-ocr",
+      "language": "vi",
+      "document_type": "clean-print",
+      "quality_target": 0.9,
+      "throughput": "unspecified",
+      "budget_usd_per_unit": null
+    },
+    "pattern": "email_workflow",
+    "overview": "Email-triggered workflow: ingest mail → extract attachments → conditional OCR → keyword match (SB123) on filename and extracted text → route → notify. Business detail: moi khi co email gui den, la quet attachment xem co keyword SB123 ko, quet ca file name lan wording ben trong attachment, truong hop attachment la file scan dang anh thi ocr xong roi quet"
+  },
+  "agent_instructions": {
+    "audience": "implementation_agent",
+    "task": "Implement solution_graph using selected_sub_pipelines; preserve node ids and edge contracts.",
+    "do_not": [
+      "change_solution_topology",
+      "treat_estimated_metrics_as_production_sla",
+      "collect_pii_or_oauth_tokens_in_pa_export"
+    ],
+    "rpa_app_builds": [
+      "email_ingress",
+      "keyword_match"
+    ],
+    "pattern": "email_workflow"
+  },
+  "document": {
+    "title": "Solution Pipeline Packet",
+    "version": "1.1",
+    "export_profile": "agent_ready",
+    "schema": "pa_solution_pipeline_packet.v1.1",
+    "session_id": "5a64a0955cea",
+    "exported_at": "2026-09-01T13:51:22.581029+00:00",
+    "purpose": "Structured handoff for implementing the solution graph and selected AI sub-pipelines."
+  },
+  "data_flow": [
+    {
+      "from": "email_ingress",
+      "to": "attachment_extract",
+      "contract": "attachment_refs"
+    },
+    {
+      "from": "attachment_extract",
+      "to": "ocr_branch",
+      "contract": "attachment_bytes"
+    },
+    {
+      "from": "attachment_extract",
+      "to": "keyword_match",
+      "contract": "filename"
+    },
+    {
+      "from": "ocr_branch",
+      "to": "keyword_match",
+      "contract": "ocr_text_optional"
+    },
+    {
+      "from": "keyword_match",
+      "to": "route_action",
+      "contract": "route_decision"
+    },
+    {
+      "from": "route_action",
+      "to": "notify",
+      "contract": "action_plan"
+    }
+  ],
+  "completeness": {
+    "topology_ready": true,
+    "ai_slots_filled": true,
+    "open_item_count": 4,
+    "blocking_open_items": 2,
+    "ready_for_implementation": true,
+    "ready_for_unattended_production": false
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipeline-architect.local/schemas/pa_solution_pipeline_packet.v1.1.json",
+  "title": "Solution Pipeline Packet",
+  "description": "Pipeline Architect export — framework + filled business slots for project handoff.",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "export_profile",
+    "problem_fingerprint",
+    "solution_graph",
+    "business_slots",
+    "open_items",
+    "completeness",
+    "selected_sub_pipelines",
+    "agent_instructions"
+  ],
+  "properties": {
+    "format": { "const": "pa_solution_pipeline_packet" },
+    "version": { "const": "1.1" },
+    "export_profile": { "const": "agent_ready" },
+    "document": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "version": { "type": "string" },
+        "export_profile": { "type": "string" },
+        "schema": { "const": "pa_solution_pipeline_packet.v1.1" },
+        "session_id": { "type": "string" },
+        "exported_at": { "type": "string" },
+        "purpose": { "type": "string" }
+      }
+    },
+    "problem_fingerprint": { "type": "object" },
+    "requirements": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": ["string", "null"] },
+        "business_intent": { "type": ["string", "null"] },
+        "overview": { "type": "string" },
+        "constraints": { "type": "object" },
+        "pattern": { "type": "string" }
+      }
+    },
+    "business_slots": {
+      "type": "object",
+      "required": ["pattern", "slots"],
+      "properties": {
+        "pattern": { "type": "string" },
+        "slots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "node_id", "type", "fields"],
+            "properties": {
+              "id": { "type": "string" },
+              "node_id": { "type": "string" },
+              "type": { "type": "string" },
+              "fields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["value", "source", "confidence", "confirm_in_rpa"],
+                  "properties": {
+                    "value": {},
+                    "source": { "type": "string" },
+                    "confidence": {
+                      "enum": ["high", "medium", "low"]
+                    },
+                    "confirm_in_rpa": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "open_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slot_id", "field", "action"],
+        "properties": {
+          "slot_id": { "type": "string" },
+          "field": { "type": "string" },
+          "current_value": {},
+          "source": { "type": "string" },
+          "confidence": { "type": "string" },
+          "action": { "const": "confirm_in_rpa" }
+        }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "properties": {
+        "topology_ready": { "type": "boolean" },
+        "ai_slots_filled": { "type": "boolean" },
+        "open_item_count": { "type": "integer" },
+        "blocking_open_items": { "type": "integer" },
+        "ready_for_implementation": { "type": "boolean" },
+        "ready_for_unattended_production": { "type": "boolean" }
+      }
+    },
+    "solution_graph": { "type": "object" },
+    "data_flow": { "type": "array" },
+    "integrations": { "type": "array" },
+    "ai_pipeline_slots": { "type": "array" },
+    "selected_sub_pipelines": { "type": "array" },
+    "architecture_decision_report": { "type": ["object", "null"] },
+    "agent_instructions": { "type": "object" },
+    "compose_summary": { "type": "object" },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,12 @@
+# Problem fingerprint for email + SB123 workflow (OCR slot benchmark)
+problem_fingerprint:
+  domain: document-ocr
+  language: vi
+  document_type: clean-print
+  quality_target: 0.9
+  throughput_target: unspecified
+  budget_constraint_usd_per_unit: null
+  notes: >
+    Mỗi khi có email gửi đến, quét attachment xem có keyword SB123 không;
+    quét cả file name lẫn wording bên trong attachment;
+    trường hợp attachment là file scan dạng ảnh thì OCR xong rồi quét.
