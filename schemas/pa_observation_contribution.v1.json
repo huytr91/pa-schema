@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipeline-architect.local/schemas/pa_observation_contribution.v1.json",
+  "title": "Pipeline Architect — Observation Contribution Bundle",
+  "description": "Opt-in community benchmark upload. Pipeline evidence metrics ONLY. Forbidden for AI agent / interview / LLM context.",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "data_use_policy",
+    "harness_version",
+    "observations"
+  ],
+  "properties": {
+    "format": { "const": "pa_observation_contribution" },
+    "version": { "const": "1.0" },
+    "data_use_policy": {
+      "type": "object",
+      "required": ["purpose", "allowed_consumers", "forbidden_consumers"],
+      "properties": {
+        "purpose": { "const": "pipeline_benchmark_evidence_only" },
+        "allowed_consumers": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "benchmark_leaderboard",
+              "evidence_aggregation",
+              "outlier_detection",
+              "community_stats"
+            ]
+          }
+        },
+        "forbidden_consumers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "interview_agent",
+              "architecture_agent",
+              "web_chat_context",
+              "llm_training",
+              "llm_fine_tuning",
+              "marketing",
+              "user_profiling"
+            ]
+          }
+        },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "harness_version": { "type": "string" },
+    "experiment_id": { "type": "string" },
+    "hardware_fingerprint": {
+      "type": "object",
+      "required": ["cpu_class", "cores", "ram_bucket", "gpu_class", "detection_method"],
+      "properties": {
+        "cpu_class": { "type": "string" },
+        "cores": { "type": "integer" },
+        "ram_bucket": { "type": "string" },
+        "gpu_class": { "type": "string" },
+        "gpu_model": { "type": ["string", "null"] },
+        "vram_mb": { "type": ["integer", "null"] },
+        "os_family": { "type": "string", "description": "Coarse OS family only, e.g. windows/linux/macos — no hostname" },
+        "detection_method": { "const": "auto" }
+      },
+      "additionalProperties": false
+    },
+    "problem_fingerprint_public": {
+      "type": "object",
+      "description": "Structural workload constraints only — NEVER includes notes or business text",
+      "required": ["domain", "fingerprint_id_public"],
+      "properties": {
+        "domain": { "type": "string" },
+        "language": { "type": ["string", "null"] },
+        "document_type": { "type": ["string", "null"] },
+        "quality_target": { "type": "number" },
+        "throughput_target": { "type": "string" },
+        "budget_usd_per_unit": { "type": ["number", "null"] },
+        "fingerprint_id_public": {
+          "type": "string",
+          "description": "Hash of public fields only (excludes notes)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "pipelines_public": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pipeline_id", "pipeline_version", "checksum", "component_names"],
+        "properties": {
+          "pipeline_id": { "type": "string" },
+          "pipeline_version": { "type": "string" },
+          "checksum": { "type": "string" },
+          "component_names": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Step component ids only — no per-step config secrets"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "pipeline_id",
+          "pipeline_version",
+          "problem_fingerprint_id_public",
+          "checksum",
+          "latency_p50",
+          "latency_p95",
+          "peak_ram_mb",
+          "success_rate",
+          "quality",
+          "quality_confidence",
+          "run_count",
+          "variance",
+          "harness_version",
+          "source_type"
+        ],
+        "properties": {
+          "pipeline_id": { "type": "string" },
+          "pipeline_version": { "type": "string" },
+          "problem_fingerprint_id_public": { "type": "string" },
+          "checksum": { "type": "string" },
+          "latency_p50": { "type": "number" },
+          "latency_p95": { "type": "number" },
+          "peak_ram_mb": { "type": "number" },
+          "peak_vram_mb": { "type": ["number", "null"] },
+          "cold_start_time_ms": { "type": ["number", "null"] },
+          "success_rate": { "type": "number" },
+          "quality": { "type": "number" },
+          "quality_confidence": { "type": "number" },
+          "num_steps": { "type": "integer" },
+          "num_external_deps": { "type": "integer" },
+          "has_paid_api_dependency": { "type": "boolean" },
+          "run_count": { "type": "integer", "minimum": 3 },
+          "variance": { "type": "number" },
+          "harness_version": { "type": "string" },
+          "source_type": { "const": "internal" },
+          "timestamp": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "terms_accepted": {
+      "type": "object",
+      "properties": {
+        "license": { "const": "ODC-BY-1.0" },
+        "accepted_at": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": false
+}
