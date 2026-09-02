@@ -25,7 +25,6 @@ def main() -> int:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     validator = jsonschema.Draft202012Validator(schema)
     contrib_schema = json.loads(CONTRIBUTION_SCHEMA_PATH.read_text(encoding="utf-8"))
-    contrib_validator = jsonschema.Draft202012Validator(contrib_schema)
     failed = False
     for path in EXAMPLES:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -39,11 +38,12 @@ def main() -> int:
             print(f"OK   {path}")
 
     contrib_path = ROOT / "schemas" / "pa_observation_contribution.v1.json"
-    if contrib_validator.iter_errors(json.loads(contrib_path.read_text())):
-        failed = True
-        print(f"FAIL {contrib_path} (self-validation)")
-    else:
+    try:
+        jsonschema.Draft202012Validator.check_schema(contrib_schema)
         print(f"OK   {contrib_path} (schema valid)")
+    except jsonschema.SchemaError as exc:
+        failed = True
+        print(f"FAIL {contrib_path} (invalid schema): {exc.message}")
 
     return 1 if failed else 0
 
